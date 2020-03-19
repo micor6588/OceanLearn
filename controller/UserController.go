@@ -12,6 +12,7 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
+// Register 处理用户注册
 func Register(Ctx *gin.Context) {
 	DB := common.GetDB() //获取数据库数据
 	//获取参数
@@ -52,7 +53,7 @@ func Register(Ctx *gin.Context) {
 	})
 }
 
-//与数据库中的数据，验证手机号是否存在
+// isTelephoneExitst 与数据库中的数据，验证手机号是否存在
 func isTelephoneExitst(db *gorm.DB, telephone string) bool {
 	var user model.User
 	db.Where("telephone = ?", telephone).First(&user)
