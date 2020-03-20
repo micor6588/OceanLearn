@@ -1,11 +1,10 @@
 package controller
 
 import (
-	"ginEssential/Demo01/common"
-	"ginEssential/Demo01/model"
-	"ginEssential/Demo01/util"
-
 	"log"
+	"micor/ginessential/common"
+	"micor/ginessential/model"
+	"micor/ginessential/util"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"ginEssential/Demo01/common"
+	"micor/ginessential/common"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"

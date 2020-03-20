@@ -2,7 +2,7 @@ package common
 
 import (
 	"fmt"
-	"ginEssential/Demo01/model"
+	"micor/ginessential/model"
 
 	"github.com/jinzhu/gorm"
 )
