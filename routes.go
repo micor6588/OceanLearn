@@ -8,6 +8,6 @@ import (
 
 // CollectRoute 服务器的路由设置
 func CollectRoute(r *gin.Engine) *gin.Engine {
-	r = r.POST("/api/auth/register", controller.Register)
+	r.POST("/api/auth/register", controller.Register)
 	return r
 }
