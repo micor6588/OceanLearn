@@ -3,7 +3,9 @@ package controller
 import (
 	"log"
 	"micor/ginessential/common"
+	"micor/ginessential/dto"
 	"micor/ginessential/model"
+	"micor/ginessential/response"
 	"micor/ginessential/util"
 	"net/http"
 
@@ -12,94 +14,105 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Register 处理用户注册
-func Register(Ctx *gin.Context) {
-	DB := common.GetDB() //获取数据库数据
+func Register(ctx *gin.Context) {
+	DB := common.GetDB()
+	var requestUser = model.User{}
+	//json.NewDecoder(ctx.Request.Body).Decode(&requestUser)
+	ctx.Bind(&requestUser)
 	//获取参数
-	name := Ctx.PostForm("name")
-	telephone := Ctx.PostForm("telephone")
-	password := Ctx.PostForm("password")
-
+	name := requestUser.Name
+	telephone := requestUser.Telephone
+	password := requestUser.Password
 	//数据验证
 	if len(telephone) != 11 {
-		Ctx.JSON(http.StatusUnprocessableEntity, gin.H{"code": 422, "msg": "手机号必须是11位"})
+		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil, "手机号必须为11位")
 		return
 	}
 	if len(password) < 6 {
-		Ctx.JSON(http.StatusUnprocessableEntity, gin.H{"code": 422, "msg": "密码不能少于6位"})
+		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil, "密码不能少于6位")
 		return
 	}
-	//如果名称没有传，就给出一个10位的随机字符串
+	//如果名称为空给一个随机字符串
 	if len(name) == 0 {
 		name = util.RandomString(10)
+	}
+	if isTelephoneExist(DB, telephone) {
+		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil, "用户已存在")
 		return
 	}
-	log.Println(name, telephone, password)
-	//判断手机号是否存在
-	if isTelephoneExitst(DB, telephone) {
-		Ctx.JSON(http.StatusUnprocessableEntity, gin.H{"code": 422, "msg": "用户已经存在"})
-		return
-	}
-	//创建用户
-	hasedPassdord, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hasePassowrd, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		Ctx.JSON(http.StatusUnprocessableEntity, gin.H{"code": 500, "msg": "密码加密错误"})
+		response.Response(ctx, http.StatusInternalServerError, 500, nil, "加密错误")
 		return
 	}
 	newUser := model.User{
 		Name:      name,
 		Telephone: telephone,
-		Password:  string(hasedPassdord),
+		Password:  string(hasePassowrd),
 	}
 	DB.Create(&newUser)
+	//发送token
+	token, err := common.ReleaseToken(newUser)
+	if err != nil {
+		response.Response(ctx, http.StatusInternalServerError, 500, nil, "系统异常")
+		log.Printf("token generate error:%v", err)
+		return
+	}
+
 	//返回结果
-	Ctx.JSON(200, gin.H{
-		"msg":  "注册成功",
-		"code": 200,
-	})
+	response.Success(ctx, gin.H{"token": token}, "注册成功")
 }
 
-// Login 处理客户端登录相关逻辑
-func Login(Ctx *gin.Context) {
-	DB := common.GetDB()
+func Login(c *gin.Context) {
+	db := common.GetDB()
 	//获取参数
-	telephone := Ctx.PostForm("telephone")
-	password := Ctx.PostForm("password")
+	telephone := c.PostForm("telephone")
+	password := c.PostForm("password")
 	//数据验证
 	if len(telephone) != 11 {
-		Ctx.JSON(http.StatusUnprocessableEntity, gin.H{"code": 422, "msg": "手机号必须是11位"})
+		response.Response(c, http.StatusUnprocessableEntity, 422, nil, "手机号必须为11位")
 		return
 	}
 	if len(password) < 6 {
-		Ctx.JSON(http.StatusUnprocessableEntity, gin.H{"code": 422, "msg": "密码不能少于6位"})
+		response.Response(c, http.StatusUnprocessableEntity, 422, nil, "密码不能少于6位")
 		return
 	}
 	//判断手机号是否存在
 	var user model.User
-	DB.Where("telephone = ?", telephone).First(&user)
+	db.Where("telephone=?", telephone).First(&user)
 	if user.ID == 0 {
-		Ctx.JSON(http.StatusUnprocessableEntity, gin.H{"code": 422, "msg": "用户不存在"})
+		response.Response(c, http.StatusUnprocessableEntity, 422, nil, "密码不能少于6位")
 		return
 	}
-	//判断密码是否正确,密码不能明文保存，需要加密后保存
+	//判断密码是否正确
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
-		Ctx.JSON(http.StatusUnprocessableEntity, gin.H{"code": 400, "msg": "密码错误"})
+		response.Response(c, http.StatusBadRequest, 400, nil, "密码错误")
+		//c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "密码错误"})
 		return
 	}
-	//发放token
-	token := "11"
+
+	//发送token
+	token, err := common.ReleaseToken(user)
+	if err != nil {
+		response.Response(c, http.StatusInternalServerError, 500, nil, "系统异常")
+		//c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "系统异常"})
+		log.Printf("token generate error:%v", err)
+	}
+
 	//返回结果
-	Ctx.JSON(200, gin.H{
-		"msg":  "登录成功",
-		"code": 200,
-		"data": gin.H{"token": token},
-	})
+	response.Success(c, gin.H{"token": token}, "登陆成功")
 }
 
-// isTelephoneExitst 与数据库中的数据，验证手机号是否存在
-func isTelephoneExitst(db *gorm.DB, telephone string) bool {
+// Info 获取用户信息
+func Info(ctx *gin.Context) {
+	user, _ := ctx.Get("user")
+
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"user": dto.ToUserDto(user.(model.User))}})
+}
+
+func isTelephoneExist(db *gorm.DB, telephone string) bool {
 	var user model.User
-	db.Where("telephone = ?", telephone).First(&user)
+	db.Where("telephone=?", telephone).First(&user)
 	if user.ID != 0 {
 		return true
 	}

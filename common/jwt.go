@@ -21,7 +21,7 @@ func ReleaseToken(user model.User) (string, error) {
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expireTime.Unix(), //过期时间
 			IssuedAt:  time.Now().Unix(),
-			Issuer:    "xietong.me",
+			Issuer:    "micor5688",
 			Subject:   "user token",
 		},
 	}
@@ -33,6 +33,7 @@ func ReleaseToken(user model.User) (string, error) {
 	return tokenString, nil
 }
 
+// 解析Token
 func ParseToken(tokenString string) (*jwt.Token, *Claims, error) {
 	Claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, Claims, func(token *jwt.Token) (i interface{}, err error) {
