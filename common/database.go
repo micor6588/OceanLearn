@@ -9,7 +9,7 @@ import (
 
 var DB *gorm.DB
 
-// InitDB 开启连接池
+// InitDB 开启连接池，初始化数据库
 func InitDB() *gorm.DB {
 	driverName := "mysql"
 	host := "localhost"
